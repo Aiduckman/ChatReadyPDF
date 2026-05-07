@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 """
 PDF Text Extractor
 ==================
@@ -353,6 +354,78 @@ class SearchBar(QFrame):
             self.match_label.setText(f"{count} match{'es' if count != 1 else ''}")
 
 
+
+# ── App icon ──────────────────────────────────────────────────────────────────
+
+def _make_app_icon() -> QIcon:
+    """Draw a crisp PDF document icon programmatically."""
+    sz = 256
+    px = QPixmap(sz, sz)
+    px.fill(Qt.GlobalColor.transparent)
+    p = QPainter(px)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    # Shadow
+    from PyQt6.QtCore import QRectF
+    shadow_rect = QRectF(10, 12, sz - 16, sz - 16)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor(0, 0, 0, 40))
+    p.drawRoundedRect(shadow_rect, 18, 18)
+
+    # Page body — white with slight warm tint
+    body_rect = QRectF(6, 4, sz - 16, sz - 16)
+    p.setBrush(QColor("#FAFAFA"))
+    p.setPen(Qt.PenStyle.NoPen)
+    p.drawRoundedRect(body_rect, 16, 16)
+
+    # Folded corner (top-right)
+    fold = 40
+    bx, by = int(body_rect.x()), int(body_rect.y())
+    bw = int(body_rect.width())
+    from PyQt6.QtGui import QPolygon
+    from PyQt6.QtCore import QPoint
+    fold_poly = QPolygon([
+        QPoint(bx + bw - fold, by),
+        QPoint(bx + bw,        by + fold),
+        QPoint(bx + bw - fold, by + fold),
+    ])
+    p.setBrush(QColor("#E0E0E0"))
+    p.drawPolygon(fold_poly)
+
+    # Fold crease line
+    p.setPen(QColor("#CCCCCC"))
+    from PyQt6.QtCore import QLine
+    p.drawLine(QLine(bx + bw - fold, by, bx + bw - fold, by + fold))
+    p.drawLine(QLine(bx + bw - fold, by + fold, bx + bw, by + fold))
+
+    # Red badge at bottom
+    badge_rect = QRectF(bx + 14, by + sz - 80, bw - 28, 52)
+    from PyQt6.QtGui import QLinearGradient
+    grad = QLinearGradient(badge_rect.topLeft(), badge_rect.bottomLeft())
+    grad.setColorAt(0, QColor("#FF3B30"))
+    grad.setColorAt(1, QColor("#C0271E"))
+    p.setBrush(grad)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.drawRoundedRect(badge_rect, 10, 10)
+
+    # "PDF" text in badge
+    font = QFont("SF Pro Display", 52, QFont.Weight.Bold)
+    font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 2)
+    p.setFont(font)
+    p.setPen(QColor("#FFFFFF"))
+    p.drawText(badge_rect.toRect(), Qt.AlignmentFlag.AlignCenter, "PDF")
+
+    # Faint lines suggesting text content
+    p.setPen(QColor("#DDDDDD"))
+    line_x = bx + 20
+    line_w = bw - 60
+    for ly in [by + 60, by + 82, by + 104, by + 126, by + 148]:
+        w = line_w if ly != by + 148 else int(line_w * 0.6)
+        p.drawLine(line_x, ly, line_x + w, ly)
+
+    p.end()
+    return QIcon(px)
+
 # ── Main window ───────────────────────────────────────────────────────────────
 
 class MainWindow(QMainWindow):
@@ -394,9 +467,6 @@ class MainWindow(QMainWindow):
 
         # Sidebar
         self.sidebar = QListWidget()
-        self.sidebar.setMinimumWidth(160)
-        self.sidebar.setMaximumWidth(320)
-        self.sidebar.setFixedWidth(SIDEBAR_WIDTH)
         self.sidebar.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.sidebar.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.sidebar.setObjectName("Sidebar")
@@ -429,7 +499,26 @@ class MainWindow(QMainWindow):
         self.status_label.setContentsMargins(14, 4, 14, 5)
         right_layout.addWidget(self.status_label)
 
-        self.splitter.addWidget(self.sidebar)
+        # Sidebar container (list + button below)
+        sidebar_container = QWidget()
+        sidebar_container.setObjectName("SidebarContainer")
+        sc_layout = QVBoxLayout(sidebar_container)
+        sc_layout.setContentsMargins(0, 0, 0, 0)
+        sc_layout.setSpacing(0)
+        sc_layout.addWidget(self.sidebar)
+
+        self.new_btn = QPushButton("＋  Open PDF")
+        self.new_btn.setObjectName("NewFileBtn")
+        self.new_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.new_btn.clicked.connect(self._open_files)
+        self.new_btn.setFixedHeight(38)
+        sc_layout.addWidget(self.new_btn)
+
+        sidebar_container.setMinimumWidth(160)
+        sidebar_container.setMaximumWidth(320)
+        sidebar_container.setFixedWidth(SIDEBAR_WIDTH)
+
+        self.splitter.addWidget(sidebar_container)
         self.splitter.addWidget(right_panel)
         self.splitter.setSizes([SIDEBAR_WIDTH, DEFAULT_WINDOW_W - SIDEBAR_WIDTH])
 
@@ -582,6 +671,26 @@ class MainWindow(QMainWindow):
                 font-family: "{UI_FONT}";
                 font-size: 12px;
                 padding: 4px 14px;
+            }}
+
+            /* ── New File Button ── */
+            QPushButton#NewFileBtn {{
+                background: transparent;
+                border: none;
+                border-top: 1px solid {border};
+                border-right: 1px solid {border};
+                font-family: "{UI_FONT}";
+                font-size: 13px;
+                font-weight: 500;
+                color: #0A84FF;
+                padding: 0px;
+                text-align: center;
+            }}
+            QPushButton#NewFileBtn:hover {{
+                background: {sel_bg};
+            }}
+            QPushButton#NewFileBtn:pressed {{
+                background: {border};
             }}
 
             /* ── Scrollbar ── */
@@ -847,7 +956,10 @@ def main():
     if sys.platform == "darwin":
         app.setStyle("macos")
 
+    icon = _make_app_icon()
+    app.setWindowIcon(icon)
     window = MainWindow()
+    window.setWindowIcon(icon)
     window.show()
 
     # Support opening files via command-line args
