@@ -1,12 +1,14 @@
 # PDF Text Extractor
 
 A beautiful, **100% offline** macOS desktop app for extracting text from PDF files.
+Save your token usage in LLMs by converting your PDFs to .txt files
+You can also combine it with my document anonymization tool for 100% anonymity on LLM (and EU GDPR Compliant)
 
 ![UI preview](ui_preview.png)
 
 ---
 
-## For clients — install in 30 seconds
+## For users — install in 30 seconds
 
 1. Download `PDFTextExtractor.app` (or the `.zip` containing it) from the [Releases](https://github.com/Aiduckman/ChatReadyPDF/releases) page.
 2. Drag **PDFTextExtractor.app** into your **Applications** folder.
