@@ -45,6 +45,77 @@ jobs:
           $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
           Write-Host "Built $exe ($size MB)"
 
+      # ── Smoke test ────────────────────────────────────────────────────────
+      # Real-machine validation: generate a tiny PDF with PyMuPDF, launch the
+      # built .exe with that PDF as an argument, wait for it to start + load,
+      # confirm the process is still alive (i.e. no missing-module / DLL /
+      # PyInstaller-bundle crash), then kill it cleanly.
+      #
+      # Uses Qt's offscreen platform plugin so no GUI session is required —
+      # this also lets us catch issues that would otherwise hide behind a
+      # headless-display warning.
+      - name: Smoke test the .exe
+        working-directory: windows
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          $exe = (Resolve-Path "dist\PDFTextExtractor.exe").Path
+          Write-Host "==> Generating tiny test.pdf with PyMuPDF…"
+          python -c @"
+          import fitz
+          d = fitz.open()
+          p = d.new_page()
+          p.insert_text((72, 72),  'PDF Text Extractor — CI smoke test', fontsize=14)
+          p.insert_text((72, 110), 'Page 1 of 1.  If extraction works,', fontsize=11)
+          p.insert_text((72, 128), 'this text should round-trip cleanly.', fontsize=11)
+          d.save('test.pdf')
+          d.close()
+          print('Wrote test.pdf')
+          "@
+          if (-not (Test-Path "test.pdf")) {
+            Write-Error "Failed to generate test.pdf"
+            exit 1
+          }
+
+          Write-Host "==> Launching the .exe with test.pdf in offscreen mode…"
+          $stdout = "smoke-stdout.log"
+          $stderr = "smoke-stderr.log"
+          $proc = Start-Process -FilePath $exe `
+                                -ArgumentList "test.pdf" `
+                                -PassThru `
+                                -WindowStyle Hidden `
+                                -RedirectStandardOutput $stdout `
+                                -RedirectStandardError  $stderr
+
+          Write-Host "==> PID $($proc.Id) launched. Waiting 10 seconds…"
+          Start-Sleep -Seconds 10
+
+          if ($proc.HasExited) {
+            Write-Host "----- stdout -----"
+            if (Test-Path $stdout) { Get-Content $stdout }
+            Write-Host "----- stderr -----"
+            if (Test-Path $stderr) { Get-Content $stderr }
+            Write-Error "FAIL: app exited prematurely with code $($proc.ExitCode)"
+            exit 1
+          }
+
+          Write-Host "PASS: app stayed alive 10s — no startup crash."
+          Write-Host "       (PyQt6 + fitz imported, PyInstaller bundle intact, DLLs resolved.)"
+
+          # Clean shutdown
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 1
+          # Print whatever the app wrote so the log shows real output
+          if ((Test-Path $stdout) -and ((Get-Item $stdout).Length -gt 0)) {
+            Write-Host "----- app stdout -----"
+            Get-Content $stdout
+          }
+          if ((Test-Path $stderr) -and ((Get-Item $stderr).Length -gt 0)) {
+            Write-Host "----- app stderr -----"
+            Get-Content $stderr
+          }
+
       - name: Upload .exe as workflow artifact
         uses: actions/upload-artifact@v4
         with:
