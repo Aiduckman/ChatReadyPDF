@@ -1,0 +1,65 @@
+name: Build Windows .exe
+
+on:
+  push:
+    tags:
+      - 'v*'           # builds on any v* tag (v2.1.0, v2.1.1, …)
+  workflow_dispatch:    # also runnable manually from the Actions tab
+
+permissions:
+  contents: write       # needed to attach the .exe to a Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install "PyMuPDF>=1.24.0" "PyQt6>=6.6.0" "pyinstaller>=6.6.0"
+
+      - name: Build PDFTextExtractor.exe
+        working-directory: windows
+        run: |
+          pyinstaller --noconfirm --clean PDFTextExtractor_win.spec
+
+      - name: Sanity-check the build output
+        working-directory: windows
+        shell: pwsh
+        run: |
+          $exe = "dist\PDFTextExtractor.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Error "Build did not produce $exe"
+            exit 1
+          }
+          $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
+          Write-Host "Built $exe ($size MB)"
+
+      - name: Upload .exe as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PDFTextExtractor-windows-x64
+          path: windows/dist/PDFTextExtractor.exe
+          if-no-files-found: error
+
+      # ── Only on tag pushes: attach the .exe to the matching GitHub Release ─
+      - name: Attach .exe to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: windows/dist/PDFTextExtractor.exe
+          fail_on_unmatched_files: true
+          # Create the Release if a manual tag was pushed without one yet:
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
