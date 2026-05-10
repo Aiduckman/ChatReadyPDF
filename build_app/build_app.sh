@@ -53,8 +53,21 @@ fi
 echo "✓  Using $($PYTHON --version) ($PYTHON)"
 
 # ── Create / refresh venv ────────────────────────────────────────────────────
+# A venv hardcodes its own absolute path inside bin/activate. If the project
+# directory got moved/renamed, the old activate file points at a non-existent
+# path and `pip` won't be on $PATH after sourcing it. Detect that and rebuild.
+venv_is_stale() {
+    [[ -f "$VENV/bin/activate" ]] || return 0
+    grep -q "^export VIRTUAL_ENV=\"\?${VENV}\"\?\$" "$VENV/bin/activate" && return 1
+    return 0
+}
+
 if [[ ! -d "$VENV" ]]; then
     echo "📦  Creating build venv at $VENV"
+    "$PYTHON" -m venv "$VENV"
+elif venv_is_stale; then
+    echo "♻️   Existing venv was created at a different path — rebuilding."
+    rm -rf "$VENV"
     "$PYTHON" -m venv "$VENV"
 fi
 
