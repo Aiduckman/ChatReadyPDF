@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+
+# Build output
+dist/
+build/
+
+# PyInstaller / build_app helpers
+build_app/.venv/
+build_app/build/
+build_app/AppIcon.iconset/
+build_app/AppIcon.icns
+build_app/__pycache__/
+build_app/*.spec.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.env
+.python-version
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Xcode (for SwiftUI version)
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+*.xcuserstate
+
+# Logs / scratch
+*.log
+*.tmp

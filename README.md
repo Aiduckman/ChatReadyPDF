@@ -1,83 +1,156 @@
-# PDF OCR Text Converter
+# PDF Text Extractor
 
-A small, browser-based tool that converts PDFs and images into plain text.
+A beautiful, **100% offline** macOS desktop app for extracting text from PDF files.
 
-It extracts embedded PDF text with PDF.js and can use OCR for scanned PDFs or photos of text through Tesseract.js. It runs as a static web page, so you can host it on GitHub Pages, Netlify, Vercel, or open it locally in a browser.
+![UI preview](ui_preview.png)
+
+---
+
+## For clients — install in 30 seconds
+
+1. Download `PDFTextExtractor.app` (or the `.zip` containing it) from the [Releases](https://github.com/Aiduckman/ChatReadyPDF/releases) page.
+2. Drag **PDFTextExtractor.app** into your **Applications** folder.
+3. The very first time you launch it: **right-click the app → Open**, then click **Open** in the dialog.
+   *(macOS shows that warning for any app that isn't notarized by Apple. It's a one-time click — after that it opens normally from Launchpad/Spotlight.)*
+
+That's it. No Python, no Terminal, no `pip install`. The app is fully self-contained (~120 MB) and runs entirely offline — your PDFs never leave your Mac.
+
+> **Requires macOS 11 (Big Sur) or newer, Apple Silicon or Intel.**
+
+---
 
 ## Features
 
-- Convert normal PDFs with selectable page ranges
-- OCR scanned PDFs by rendering pages to canvas first
-- OCR image files such as PNG, JPG/JPEG, WEBP, BMP, and TIFF
-- Auto OCR fallback for pages with little or no embedded text
-- Force OCR mode for fully scanned documents
-- Multi-language OCR using Tesseract language codes such as `eng`, `fra`, `deu`, `ell`, or `eng+ell`
-- Batch queue with per-file progress
-- Download individual `.txt` / `.md` files or export everything as a `.zip`
-- No server-side processing by this project
+| Feature | Description |
+|---|---|
+| **Drag & Drop** | Drop PDFs directly onto the window |
+| **Open dialog** | ⌘O — open one or many PDFs at once |
+| **Multi-file sidebar** | Switch between docs instantly |
+| **Page markers** | Text is split by page for easy navigation |
+| **Search** | ⌘F — highlights all matches in yellow |
+| **Copy text** | ⇧⌘C — copy all extracted text to clipboard |
+| **Save as .txt** | ⌘S — save extracted text as a plain-text file |
+| **Remove file** | ⌘W — remove current doc from the list |
+| **Show in Finder** | Right-click any sidebar item |
+| **Dark mode** | Automatically follows system appearance |
+| **Background loading** | Large PDFs load without freezing the UI |
 
-## Privacy note
+### Keyboard shortcuts
 
-Your selected files are processed in your browser by this page. The app does not upload your PDFs or images to a server controlled by this project.
+| Shortcut | Action |
+|---|---|
+| ⌘O | Open PDF(s) |
+| ⌘F | Show search bar |
+| Escape | Close search bar |
+| ⇧⌘C | Copy extracted text |
+| ⌘S | Save as .txt |
+| ⌘W | Remove current file |
 
-However, the default version loads PDF.js, JSZip, Tesseract.js, and OCR language data from public CDNs. For sensitive/offline use, vendor those dependencies locally and update the script URLs in `index.html`.
+---
 
-## Quick start
+## For developers — building the .app
 
-Open `index.html` in a modern browser.
+You only need to do this if you want to rebuild the bundle yourself (after editing the code, bumping the version, etc.).
 
-For best results, especially with OCR workers, serve it from a local web server:
+### One command
 
 ```bash
-python3 -m http.server 8080
+cd build_app
+./build_app.sh
 ```
 
-Then open:
+The script handles everything:
 
-```text
-http://localhost:8080
+- Picks a compatible Python (3.10–3.12 from Homebrew)
+- Creates an isolated build venv at `build_app/.venv/`
+- Installs **PyInstaller**, **PyQt6**, and **PyMuPDF**
+- Generates `AppIcon.icns` from `AppIcon.png`
+- Runs PyInstaller against `PDFTextExtractor.spec`
+- Outputs `dist/PDFTextExtractor.app`
+
+First run takes ~1–2 minutes (downloads ~150 MB of build deps). Subsequent rebuilds reuse the cached venv and take ~20 seconds.
+
+### Requirements
+
+- macOS 11+ with Command Line Tools (`xcode-select --install`)
+- Python 3.10, 3.11, or 3.12 (`brew install python@3.12`)
+
+### Run from source instead (for quick iteration)
+
+```bash
+chmod +x run.sh
+./run.sh
 ```
 
-## Deploy to GitHub Pages
+`run.sh` installs PyMuPDF + PyQt6 into your active Python env and launches the script directly — handy while editing `pdf_text_extractor.py`.
 
-1. Create a new GitHub repository.
-2. Upload these project files.
-3. Go to **Settings → Pages**.
-4. Under **Build and deployment**, choose **Deploy from a branch**.
-5. Select the `main` branch and root folder `/`.
-6. Save. GitHub will give you a public URL.
+---
 
-More details are in [`docs/GITHUB_PAGES.md`](docs/GITHUB_PAGES.md).
+## SwiftUI / Xcode version (alternative — fully native)
 
-## OCR tips
+The `SwiftUI_Xcode/` folder contains a SwiftUI + PDFKit version of the app. PDFKit ships with macOS, so this version has zero runtime dependencies and the resulting binary is only ~2–5 MB.
 
-- Use clear, high-contrast scans or photos.
-- For Greek, use `ell`; for English + Greek, use `eng+ell`.
-- Increase OCR scale for sharper recognition, but expect slower processing.
-- Use **Text layer only** for normal digital PDFs when speed matters.
-- Use **Force OCR every page** for image-only/scanned PDFs.
+To build it:
 
-## Limitations
+1. Open **Xcode** → File → New → Project → macOS → App
+2. Name it `PDFTextExtractor`, set Interface to **SwiftUI**, Language to **Swift**
+3. Delete the auto-generated `ContentView.swift`
+4. Drag all four `.swift` files from `SwiftUI_Xcode/` into the project
+5. Press **⌘R**
 
-- OCR can be slow on large PDFs.
-- Complex layouts, columns, tables, rotated text, handwriting, and low-quality photos may produce imperfect text.
-- The tool does not currently preserve exact table structure.
-- Tesseract.js does not read PDF files directly; this app renders PDF pages to canvas first, then runs OCR on those images.
+Requires Xcode 14+ and macOS 13+.
 
-## Project structure
+---
 
-```text
-pdf-ocr-text-converter/
-├── index.html
-├── README.md
-├── LICENSE
-├── CHANGELOG.md
-├── CONTRIBUTING.md
-├── .gitignore
-├── .nojekyll
-└── docs/
-    └── GITHUB_PAGES.md
+## How the Python version works
+
+PDF text extraction uses **PyMuPDF** (the `fitz` library) — one of the fastest and most accurate PDF parsing libraries available. It pulls the actual text layer embedded in the PDF, so no OCR is needed for normal digital PDFs. Scanned-only PDFs without an embedded text layer will show "(No extractable text found)".
+
+The SwiftUI version uses Apple's **PDFKit** framework, which ships with macOS and does the same thing natively.
+
+---
+
+## Distributing to clients
+
+Inside `dist/` after a build you'll find `PDFTextExtractor.app`. To send it to a client:
+
+```bash
+cd dist
+zip -ry PDFTextExtractor.zip PDFTextExtractor.app
 ```
+
+Then upload the `.zip` to a GitHub Release (or email/share it directly). Clients unzip and follow the three install steps at the top of this README.
+
+> **Want to skip the right-click→Open step on clients' Macs?** That requires Apple notarization, which requires an Apple Developer account ($99/year). The build script has a clearly marked place to plug in a Developer ID — see `build_app/build_app.sh`.
+
+---
+
+## Repo layout
+
+```
+ChatReadyPDF/
+├── pdf_text_extractor.py        ← Main app source
+├── requirements.txt             ← PyMuPDF + PyQt6
+├── run.sh                       ← Run from source (developer convenience)
+├── AppIcon.png                  ← Source icon
+├── ui_preview.png               ← Screenshot used in README
+├── generate_assets.py           ← Helper for regenerating screenshots
+├── build_app/
+│   ├── PDFTextExtractor.spec    ← PyInstaller config
+│   ├── build_app.sh             ← One-command builder
+│   ├── AppIcon.icns             ← Generated by build_app.sh (gitignored)
+│   └── .venv/                   ← Build venv (gitignored)
+├── dist/                        ← Build output (gitignored)
+│   └── PDFTextExtractor.app
+└── SwiftUI_Xcode/               ← Alternative native version
+    ├── PDFTextExtractorApp.swift
+    ├── DocumentStore.swift
+    ├── ContentView.swift
+    ├── SidebarView.swift
+    └── TextDetailView.swift
+```
+
+---
 
 ## License
 
